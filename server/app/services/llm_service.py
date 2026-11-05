@@ -3,6 +3,7 @@ import json
 import logging
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
+from langchain_core.messages import HumanMessage, SystemMessage
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -22,45 +23,45 @@ class LLMProvider(ABC):
         pass
 
 
-class GeminiProvider(LLMProvider):
+class LangChainGeminiProvider(LLMProvider):
+    """
+    LangChain-powered Gemini provider using ChatGoogleGenerativeAI.
+    """
     def __init__(self, api_key: Optional[str] = None, model_name: Optional[str] = None):
         self.api_key = api_key or settings.GEMINI_API_KEY
         self.model_name = model_name or settings.GEMINI_MODEL
-        self._client = None
+        self._llm = None
 
         if self.api_key:
             try:
-                from google import genai
-                self._client = genai.Client(api_key=self.api_key)
+                from langchain_google_genai import ChatGoogleGenerativeAI
+                self._llm = ChatGoogleGenerativeAI(
+                    model=self.model_name,
+                    google_api_key=self.api_key,
+                    temperature=0.2
+                )
             except Exception as e:
-                logger.warning(f"Failed to initialize google-genai Client: {e}")
+                logger.warning(f"Failed to initialize ChatGoogleGenerativeAI: {e}")
 
     def generate_text(self, prompt: str, system_instruction: Optional[str] = None) -> str:
-        if not self._client:
-            raise RuntimeError("Gemini API client is not configured. Set GEMINI_API_KEY.")
+        if not self._llm:
+            raise RuntimeError("Gemini API is not configured. Set GEMINI_API_KEY.")
         
-        config = {}
+        messages = []
         if system_instruction:
-            config["system_instruction"] = system_instruction
+            messages.append(SystemMessage(content=system_instruction))
+        messages.append(HumanMessage(content=prompt))
 
-        response = self._client.models.generate_content(
-            model=self.model_name,
-            contents=prompt,
-            config=config if config else None,
-        )
-        return response.text or ""
+        response = self._llm.invoke(messages)
+        return response.content or ""
 
     def generate_json(self, prompt: str, system_instruction: Optional[str] = None) -> Dict[str, Any]:
-        if not self._client:
-            raise RuntimeError("Gemini API client is not configured. Set GEMINI_API_KEY.")
-        
         json_instruction = (
             (system_instruction or "") + 
-            "\n\nCRITICAL: Respond ONLY with a valid JSON object. No Markdown code fences, no prefix, no postfix."
+            "\n\nCRITICAL: Respond ONLY with a valid JSON object. Do not include markdown code fences or conversational text."
         )
         response_text = self.generate_text(prompt, system_instruction=json_instruction)
         
-        # Clean response text if code block backticks exist
         cleaned = response_text.strip()
         if cleaned.startswith("```json"):
             cleaned = cleaned[7:]
@@ -73,27 +74,26 @@ class GeminiProvider(LLMProvider):
         try:
             return json.loads(cleaned)
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse LLM JSON: {e}\nRaw output: {response_text}")
+            logger.error(f"Failed to parse LLM JSON: {e}\nRaw: {response_text}")
             raise ValueError(f"LLM output could not be parsed as JSON: {e}")
 
     def get_embedding(self, text: str) -> List[float]:
-        if not self._client:
-            raise RuntimeError("Gemini API client is not configured.")
         try:
-            response = self._client.models.embed_content(
+            from google import genai
+            client = genai.Client(api_key=self.api_key)
+            response = client.models.embed_content(
                 model=settings.EMBEDDING_MODEL,
                 contents=text
             )
             return response.embedding.values
         except Exception as e:
-            logger.warning(f"Embedding generation error: {e}")
+            logger.warning(f"Embedding error: {e}")
             return [0.0] * 768
 
 
 class MockLLMProvider(LLMProvider):
     """
-    Predictable LLM provider for unit tests, offline environments,
-    and fallback operation without external API dependencies.
+    Deterministic mock provider for unit tests and offline environments.
     """
     def __init__(self):
         self.call_history = []
@@ -104,8 +104,8 @@ class MockLLMProvider(LLMProvider):
 
     def generate_json(self, prompt: str, system_instruction: Optional[str] = None) -> Dict[str, Any]:
         self.call_history.append({"prompt": prompt, "system_instruction": system_instruction})
-        
         prompt_lower = prompt.lower()
+        
         if "research_plan" in prompt_lower or "investigate" in prompt_lower:
             return {
                 "objective": "Investigate mechanisms and empirical evidence for the research question",
@@ -164,7 +164,6 @@ class MockLLMProvider(LLMProvider):
                 "evaluation_summary": "Strong hypothesis with sound empirical evidence from source documents."
             }
 
-        # Default fallback structure
         return {
             "status": "success",
             "findings": [],
@@ -172,15 +171,13 @@ class MockLLMProvider(LLMProvider):
         }
 
     def get_embedding(self, text: str) -> List[float]:
-        # Simple deterministic vector based on text length and hashing
-        seed = len(text)
         return [(hash(text + str(i)) % 1000) / 1000.0 for i in range(128)]
 
 
 def get_llm_service() -> LLMProvider:
     if settings.GEMINI_API_KEY:
         try:
-            return GeminiProvider()
+            return LangChainGeminiProvider()
         except Exception as e:
             logger.warning(f"Falling back to MockLLMProvider: {e}")
             return MockLLMProvider()
