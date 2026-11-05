@@ -1,35 +1,70 @@
 # HypothesisLab AI
 
-HypothesisLab AI is a multi-agent scientific hypothesis formulation and research discovery platform.
-
-## Repository Overview
-
-- **`/client`**: The React + Vite frontend application (Tailwind CSS, Watermelon UI architecture, DaisyUI, Motion, Recharts, React Flow).
-- **`/client/API_CONTRACT.md`**: Complete REST API contract, request schemas, multipart PDF upload specifications, and JSON response models for the FastAPI backend.
-- **Backend**: Under independent development using Python FastAPI.
+HypothesisLab AI is an autonomous multi-agent scientific hypothesis formulation, research discovery, and computational experimentation platform.
 
 ---
 
-## Backend Teammate Quick Start
+## Repository Architecture
 
-For the backend engineer developing the FastAPI services:
-1. **API Contract:** Read [`client/API_CONTRACT.md`](./client/API_CONTRACT.md) for all expected endpoints, payloads, and response structures.
-2. **Default API Base URL:** `http://localhost:8000/api/v1`
-3. **Core Endpoints Needed:**
-   - `GET /api/v1/projects` (List research projects)
-   - `POST /api/v1/projects` (Create a research project)
-   - `GET /api/v1/projects/{projectId}` (Get full project details & results)
-   - `POST /api/v1/projects/{projectId}/documents` (Upload PDFs, multipart/form-data)
-   - `POST /api/v1/projects/{projectId}/start` (Start multi-agent research workflow)
-   - `GET /api/v1/projects/{projectId}/status` (Retrieve workflow progress)
-   - `GET /api/v1/projects/{projectId}/sources` (Extracted papers, citations & quotes)
-   - `GET /api/v1/projects/{projectId}/comparisons` (Cross-paper agreements & contradictions)
-   - `GET /api/v1/projects/{projectId}/discoveries` (Gaps, cross-domain links & graph)
-   - `GET /api/v1/projects/{projectId}/hypotheses` (Formulated testable hypotheses & critical reviews)
+```text
+COLLEGEAI/
+├── client/                     # React + Vite frontend application
+│   ├── src/
+│   │   ├── components/         # Modular Watermelon UI components (Research workspace, tabs, graphs)
+│   │   ├── services/           # Axios API client & researchService HTTP layer
+│   │   ├── mock/               # Offline preview mock adapter & datasets
+│   │   └── pages/              # Home & ResearchWorkspace views
+│   ├── .env.example
+│   ├── API_CONTRACT.md         # Full REST API specification implemented by React client
+│   └── package.json
+├── server/                     # Python FastAPI multi-agent research backend
+│   ├── app/
+│   │   ├── main.py             # FastAPI entrypoint & CORS middleware
+│   │   ├── config.py           # Pydantic settings & environment configuration
+│   │   ├── api/routes/         # /projects, /research, /documents, /discoveries, /experiments
+│   │   ├── agents/             # Multi-agent autonomous research & simulation pipeline
+│   │   │   ├── research_planner.py
+│   │   │   ├── literature_discovery.py
+│   │   │   ├── research_analysis.py
+│   │   │   ├── cross_domain_discovery.py
+│   │   │   ├── gap_detection.py
+│   │   │   ├── hypothesis_generation.py
+│   │   │   ├── critical_reviewer.py
+│   │   │   └── simulation/     # Repo discovery, validation, model builder, benchmark testing
+│   │   ├── workflows/          # Asynchronous research & simulation pipelines
+│   │   ├── services/           # LLM, document extraction (PyMuPDF), KnowledgeGraph (NetworkX)
+│   │   ├── simulation/         # Isolated sandbox execution & independent benchmarks
+│   │   └── models/             # SQLAlchemy ORM models (SQLite & PostgreSQL)
+│   ├── tests/                  # Complete Pytest test suite (28 passing tests)
+│   ├── requirements.txt
+│   └── .env.example
+├── .gitignore
+└── README.md
+```
 
 ---
 
-## Running the Frontend Client
+## Local Setup & Execution
+
+### 1. Start the Backend (FastAPI)
+
+```bash
+cd server
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+- API Base URL: `http://localhost:8000/api/v1`
+- Interactive Swagger Documentation: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/api/v1/health`
+
+To run backend tests:
+```bash
+pytest server/tests -v
+```
+
+### 2. Start the Frontend Client (React + Vite)
 
 ```bash
 cd client
@@ -37,6 +72,22 @@ npm install
 npm run dev
 ```
 
-Runs at `http://localhost:5173`.
-- Set `VITE_USE_MOCK=false` in `client/.env` to connect directly to your local FastAPI backend.
-- Set `VITE_USE_MOCK=true` to test in offline mock mode.
+- Web UI runs at `http://localhost:5173`
+- Connected to live backend via `VITE_API_BASE_URL=http://localhost:8000/api/v1` in `client/.env`
+- Toggle `VITE_USE_MOCK=true` or `false` in `client/.env` to switch between live backend and offline mock mode.
+
+---
+
+## Integrated API Endpoints
+
+- `GET /api/v1/projects`: List historical and active projects
+- `POST /api/v1/projects`: Create a new research project
+- `POST /api/v1/projects/{id}/documents`: Multipart PDF upload with SHA-256 duplicate detection
+- `POST /api/v1/projects/{id}/start`: Launch asynchronous autonomous multi-agent research workflow
+- `GET /api/v1/projects/{id}/status`: Real-time stage polling (`retrieval`, `extraction`, `comparison`, `discovery`, `hypotheses`, `completed`)
+- `GET /api/v1/projects/{id}`: Complete project overview, sources, comparisons, discoveries, hypotheses, and knowledge graph
+- `GET /api/v1/projects/{id}/sources`: Verified citations and supporting quotes with page references
+- `GET /api/v1/projects/{id}/comparisons`: Cross-paper agreements and contradictions
+- `GET /api/v1/projects/{id}/discoveries`: Gaps, cross-domain connections, and NetworkX knowledge graph
+- `GET /api/v1/projects/{id}/hypotheses`: Formulated testable hypotheses with operational variables, protocols, and critical reviews
+- `DELETE /api/v1/projects/{id}`: Delete research project
