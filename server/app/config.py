@@ -10,17 +10,17 @@ class Settings(BaseSettings):
     
     # LLM & AI Models
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-3.5-flash"
     EMBEDDING_MODEL: str = "text-embedding-004"
 
     # Multi-Model Task Distribution
-    MODEL_PLANNER: str = "gemini-2.5-flash"
-    MODEL_ANALYZER: str = "gemini-2.0-flash-lite"
-    MODEL_CROSS_DOMAIN: str = "gemini-2.5-flash"
-    MODEL_GAP_DETECTION: str = "gemini-2.5-flash"
-    MODEL_HYPOTHESIS: str = "gemini-2.5-pro"
-    MODEL_REVIEWER: str = "gemini-2.5-pro"
-    MODEL_SIMULATION: str = "gemini-2.0-flash"
+    MODEL_PLANNER: str = "gemini-3.5-flash"
+    MODEL_ANALYZER: str = "gemini-3.5-flash-lite"
+    MODEL_CROSS_DOMAIN: str = "gemini-3.5-flash"
+    MODEL_GAP_DETECTION: str = "gemini-3.6-flash"
+    MODEL_HYPOTHESIS: str = "gemini-3.5-flash"
+    MODEL_REVIEWER: str = "gemini-3.5-flash-lite"
+    MODEL_SIMULATION: str = "gemini-3.5-flash"
 
     # Rate Limiting & Quota Management
     MAX_RPM_PER_MODEL: int = 12       # Safe margin below 15 RPM free tier
@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     SIMULATION_TIMEOUT: int = 60  # seconds
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "server/.env", str(Path(__file__).resolve().parent.parent / ".env")),
         env_file_encoding="utf-8",
         extra="ignore"
     )

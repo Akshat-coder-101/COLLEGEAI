@@ -86,7 +86,18 @@ class LangChainGeminiProvider(LLMProvider):
                 # 2. Invoke model
                 llm = self._get_client_for_model(candidate)
                 response = llm.invoke(messages)
-                return response.content or ""
+                content = response.content
+                if isinstance(content, list):
+                    text_parts = []
+                    for part in content:
+                        if isinstance(part, dict) and "text" in part:
+                            text_parts.append(part["text"])
+                        elif isinstance(part, str):
+                            text_parts.append(part)
+                        else:
+                            text_parts.append(str(part))
+                    return "".join(text_parts)
+                return str(content or "")
 
             except Exception as e:
                 err_str = str(e).lower()
