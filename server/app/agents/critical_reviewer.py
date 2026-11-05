@@ -19,7 +19,7 @@ class CriticalReviewerAgent:
     - Never invent evidence to approve a hypothesis
     """
     def __init__(self, llm_service: Optional[LLMProvider] = None):
-        self.llm = llm_service or get_llm_service()
+        self.llm = llm_service or get_llm_service(role="reviewer")
 
     def review_hypothesis(self, db: Session, hypothesis: Hypothesis) -> ReviewFeedback:
         prompt = f"""

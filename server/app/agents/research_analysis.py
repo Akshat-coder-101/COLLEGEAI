@@ -17,7 +17,7 @@ class ResearchAnalysisAgent:
     - Bind extracted findings to exact quotes and document locations
     """
     def __init__(self, llm_service: Optional[LLMProvider] = None):
-        self.llm = llm_service or get_llm_service()
+        self.llm = llm_service or get_llm_service(role="analyzer")
 
     def analyze_source_document(
         self,

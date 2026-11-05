@@ -15,7 +15,7 @@ class GapDetectionAgent:
     - Never claim global novelty simply because it was absent from uploaded documents
     """
     def __init__(self, llm_service: Optional[LLMProvider] = None):
-        self.llm = llm_service or get_llm_service()
+        self.llm = llm_service or get_llm_service(role="gaps")
 
     def detect_gaps(
         self,

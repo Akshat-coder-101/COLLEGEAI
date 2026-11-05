@@ -5,8 +5,20 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from langchain_core.messages import HumanMessage, SystemMessage
 from app.config import settings
+from app.services.rate_limiter import global_rate_limiter, RateLimiter
 
 logger = logging.getLogger(__name__)
+
+# Role to model resolution
+ROLE_MODEL_MAPPING = {
+    "planner": lambda: settings.MODEL_PLANNER,
+    "analyzer": lambda: settings.MODEL_ANALYZER,
+    "cross_domain": lambda: settings.MODEL_CROSS_DOMAIN,
+    "gaps": lambda: settings.MODEL_GAP_DETECTION,
+    "hypothesis": lambda: settings.MODEL_HYPOTHESIS,
+    "reviewer": lambda: settings.MODEL_REVIEWER,
+    "simulation": lambda: settings.MODEL_SIMULATION,
+}
 
 
 class LLMProvider(ABC):
@@ -25,35 +37,72 @@ class LLMProvider(ABC):
 
 class LangChainGeminiProvider(LLMProvider):
     """
-    LangChain-powered Gemini provider using ChatGoogleGenerativeAI.
+    Multi-model LangChain provider with sliding-window rate limit protection,
+    per-model RPM/RPD management, and automatic failover.
     """
-    def __init__(self, api_key: Optional[str] = None, model_name: Optional[str] = None):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model_name: Optional[str] = None,
+        rate_limiter: Optional[RateLimiter] = None
+    ):
         self.api_key = api_key or settings.GEMINI_API_KEY
-        self.model_name = model_name or settings.GEMINI_MODEL
-        self._llm = None
+        self.preferred_model = model_name or settings.GEMINI_MODEL
+        self.limiter = rate_limiter or global_rate_limiter
+        self._llm_cache: Dict[str, Any] = {}
 
-        if self.api_key:
-            try:
-                from langchain_google_genai import ChatGoogleGenerativeAI
-                self._llm = ChatGoogleGenerativeAI(
-                    model=self.model_name,
-                    google_api_key=self.api_key,
-                    temperature=0.2
-                )
-            except Exception as e:
-                logger.warning(f"Failed to initialize ChatGoogleGenerativeAI: {e}")
+    def _get_client_for_model(self, model: str):
+        if model not in self._llm_cache:
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            self._llm_cache[model] = ChatGoogleGenerativeAI(
+                model=model,
+                google_api_key=self.api_key,
+                temperature=0.2
+            )
+        return self._llm_cache[model]
 
     def generate_text(self, prompt: str, system_instruction: Optional[str] = None) -> str:
-        if not self._llm:
-            raise RuntimeError("Gemini API is not configured. Set GEMINI_API_KEY.")
-        
+        if not self.api_key:
+            raise RuntimeError("Gemini API key is not configured. Set GEMINI_API_KEY.")
+
         messages = []
         if system_instruction:
             messages.append(SystemMessage(content=system_instruction))
         messages.append(HumanMessage(content=prompt))
 
-        response = self._llm.invoke(messages)
-        return response.content or ""
+        # Attempt with effective model and failover pool
+        current_model = self.limiter.get_effective_model(self.preferred_model)
+        candidates = [current_model] + [
+            m for m in RateLimiter.FAILOVER_POOLS.get(current_model, [])
+            if m != current_model
+        ]
+
+        last_error = None
+        for candidate in candidates:
+            try:
+                # 1. Enforce rate limit & polite spacing
+                self.limiter.acquire(candidate)
+                
+                # 2. Invoke model
+                llm = self._get_client_for_model(candidate)
+                response = llm.invoke(messages)
+                return response.content or ""
+
+            except Exception as e:
+                err_str = str(e).lower()
+                if "429" in err_str or "resource_exhausted" in err_str or "quota" in err_str:
+                    logger.warning(f"Rate limit reached on {candidate}. Triggering failover cooldown.")
+                    self.limiter.record_cooldown(candidate, duration_seconds=45.0)
+                    last_error = e
+                    continue
+                else:
+                    logger.error(f"Error invoking model {candidate}: {e}")
+                    raise e
+
+        if last_error:
+            raise RuntimeError(f"All model candidates in failover pool exhausted quotas: {last_error}")
+
+        return ""
 
     def generate_json(self, prompt: str, system_instruction: Optional[str] = None) -> Dict[str, Any]:
         json_instruction = (
@@ -94,16 +143,29 @@ class LangChainGeminiProvider(LLMProvider):
 class MockLLMProvider(LLMProvider):
     """
     Deterministic mock provider for unit tests and offline environments.
+    Tracks model role requests and respects the rate limiter.
     """
-    def __init__(self):
-        self.call_history = []
+    def __init__(self, model_name: str = "mock-model", rate_limiter: Optional[RateLimiter] = None):
+        self.model_name = model_name
+        self.limiter = rate_limiter or global_rate_limiter
+        self.call_history: List[Dict[str, Any]] = []
 
     def generate_text(self, prompt: str, system_instruction: Optional[str] = None) -> str:
-        self.call_history.append({"prompt": prompt, "system_instruction": system_instruction})
-        return "Deterministic analysis response based on provided literature."
+        self.limiter.acquire(self.model_name)
+        self.call_history.append({
+            "model": self.model_name,
+            "prompt": prompt,
+            "system_instruction": system_instruction
+        })
+        return f"Deterministic response from {self.model_name}."
 
     def generate_json(self, prompt: str, system_instruction: Optional[str] = None) -> Dict[str, Any]:
-        self.call_history.append({"prompt": prompt, "system_instruction": system_instruction})
+        self.limiter.acquire(self.model_name)
+        self.call_history.append({
+            "model": self.model_name,
+            "prompt": prompt,
+            "system_instruction": system_instruction
+        })
         prompt_lower = prompt.lower()
         
         if "research_plan" in prompt_lower or "investigate" in prompt_lower:
@@ -167,18 +229,32 @@ class MockLLMProvider(LLMProvider):
         return {
             "status": "success",
             "findings": [],
-            "analysis": "Mock analysis generated."
+            "analysis": f"Mock analysis generated by {self.model_name}."
         }
 
     def get_embedding(self, text: str) -> List[float]:
         return [(hash(text + str(i)) % 1000) / 1000.0 for i in range(128)]
 
 
-def get_llm_service() -> LLMProvider:
+def get_llm_service(
+    role: Optional[str] = None,
+    model_name: Optional[str] = None
+) -> LLMProvider:
+    """
+    Returns an LLM service configured with the designated model for a specific agent role,
+    protecting against rate-limit breaches across different tasks.
+    """
+    selected_model = model_name
+    if not selected_model and role and role in ROLE_MODEL_MAPPING:
+        selected_model = ROLE_MODEL_MAPPING[role]()
+    
+    if not selected_model:
+        selected_model = settings.GEMINI_MODEL
+
     if settings.GEMINI_API_KEY:
         try:
-            return LangChainGeminiProvider()
+            return LangChainGeminiProvider(model_name=selected_model)
         except Exception as e:
-            logger.warning(f"Falling back to MockLLMProvider: {e}")
-            return MockLLMProvider()
-    return MockLLMProvider()
+            logger.warning(f"Falling back to MockLLMProvider for {selected_model}: {e}")
+            return MockLLMProvider(model_name=selected_model)
+    return MockLLMProvider(model_name=selected_model)

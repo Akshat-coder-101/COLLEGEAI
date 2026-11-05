@@ -16,7 +16,7 @@ class CrossDomainDiscoveryAgent:
     - Never present inferred connections as established facts
     """
     def __init__(self, llm_service: Optional[LLMProvider] = None):
-        self.llm = llm_service or get_llm_service()
+        self.llm = llm_service or get_llm_service(role="cross_domain")
 
     def discover_relationships(
         self,

@@ -23,7 +23,7 @@ class HypothesisGenerationAgent:
     10. Suggested next steps
     """
     def __init__(self, llm_service: Optional[LLMProvider] = None):
-        self.llm = llm_service or get_llm_service()
+        self.llm = llm_service or get_llm_service(role="hypothesis")
 
     def generate_hypotheses(
         self,

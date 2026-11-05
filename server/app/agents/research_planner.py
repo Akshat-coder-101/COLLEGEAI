@@ -16,7 +16,7 @@ class ResearchPlanningAgent:
     - Identify missing information
     """
     def __init__(self, llm_service: LLMProvider = None):
-        self.llm = llm_service or get_llm_service()
+        self.llm = llm_service or get_llm_service(role="planner")
 
     def plan_research(self, question: str, domain_hint: str = None) -> Dict[str, Any]:
         prompt = f"""
