@@ -124,7 +124,11 @@ export const ResearchWorkspace = () => {
               <HypothesesTab hypotheses={project.hypotheses || []} />
             )}
             {currentTab === 'experiments' && (
-              <ExperimentsTab experiments={project.experiments} />
+              <ExperimentsTab
+                experiments={project.experiments}
+                projectId={project.id}
+                onRefresh={refetch}
+              />
             )}
           </motion.div>
         </AnimatePresence>

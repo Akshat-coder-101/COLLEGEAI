@@ -34,17 +34,13 @@ export const WorkspaceTabs = ({ activeTab, onTabChange, stats = {}, hasExperimen
       icon: FlaskConical,
       badge: stats.hypothesesFormulated !== undefined ? stats.hypothesesFormulated : null,
     },
-  ];
-
-  // Only append Experiments tab if experiments exist or are supported
-  if (hasExperiments) {
-    tabs.push({
+    {
       id: 'experiments',
-      label: 'Experiments',
+      label: 'Computational Validation',
       icon: Workflow,
-      badge: 'Active',
-    });
-  }
+      badge: hasExperiments ? 'Verified' : 'In Silico',
+    },
+  ];
 
   return (
     <div className="bg-white border-b border-slate-200 sticky top-16 z-30">

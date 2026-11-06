@@ -125,6 +125,15 @@ export const researchService = {
   },
 
   /**
+   * Run in silico computational simulation for a project
+   * Backend Endpoint: POST /projects/{projectId}/simulate
+   */
+  async runSimulation(projectId) {
+    if (USE_MOCK) return mockAdapter.runSimulation ? mockAdapter.runSimulation(projectId) : {};
+    return apiClient.post(`/projects/${projectId}/simulate`);
+  },
+
+  /**
    * Delete a research project
    * Backend Endpoint: DELETE /projects/{projectId}
    */

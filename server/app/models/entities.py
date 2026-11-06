@@ -23,6 +23,7 @@ class ResearchProject(Base):
     question = Column(Text, nullable=False)
     domain = Column(String(100), nullable=True)
     scope = Column(String(100), default="Comprehensive Synthesis")
+    enable_simulation = Column(Boolean, default=True)
     status = Column(String(50), default="created")  # created, processing, completed, failed
     current_stage = Column(String(100), default="initialized")
     progress = Column(Integer, default=0)

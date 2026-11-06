@@ -12,6 +12,8 @@ if str(server_dir) not in sys.path:
     sys.path.insert(0, str(server_dir))
 
 from app.database.session import Base, get_db
+import app.models.entities  # Ensure all model tables are registered in Base.metadata
+from app.config import settings
 from app.main import app
 from app.services.llm_service import MockLLMProvider
 
@@ -29,17 +31,13 @@ app_session.SessionLocal = TestingSessionLocal
 app_session.engine = test_engine
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(autouse=True)
 def setup_test_db():
-    Base.metadata.drop_all(bind=test_engine)
+    original_key = settings.GEMINI_API_KEY
+    settings.GEMINI_API_KEY = None  # Ensure deterministic fast mock for unit test suite
     Base.metadata.create_all(bind=test_engine)
     yield
-    Base.metadata.drop_all(bind=test_engine)
-    if os.path.exists("./test_hypothesis_lab.db"):
-        try:
-            os.remove("./test_hypothesis_lab.db")
-        except Exception:
-            pass
+    settings.GEMINI_API_KEY = original_key
 
 
 @pytest.fixture

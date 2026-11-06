@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, List, TypedDict
 from sqlalchemy.orm import Session
 from langgraph.graph import StateGraph, START, END
 
-from app.database.session import SessionLocal
+import app.database.session as db_session_module
 from app.models.entities import Experiment, SimulationReport, Hypothesis
 from app.agents.simulation.repository_discovery import RepositoryDiscoveryAgent
 from app.agents.simulation.repository_validation import RepositoryValidationAgent
@@ -215,7 +215,7 @@ class SimulationWorkflowRunner:
     async def execute_simulation(self, experiment_id: str, db: Optional[Session] = None):
         should_close = False
         if db is None:
-            db = SessionLocal()
+            db = db_session_module.SessionLocal()
             should_close = True
 
         try:
@@ -248,3 +248,6 @@ class SimulationWorkflowRunner:
         finally:
             if should_close:
                 db.close()
+
+    async def run_simulation_langgraph(self, experiment_id: str, db: Optional[Session] = None):
+        return await self.execute_simulation(experiment_id, db=db)

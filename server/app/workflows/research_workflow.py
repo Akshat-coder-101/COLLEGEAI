@@ -4,7 +4,7 @@ from typing import Dict, Any, Optional, List, TypedDict
 from sqlalchemy.orm import Session
 from langgraph.graph import StateGraph, START, END
 
-from app.database.session import SessionLocal
+import app.database.session as db_session_module
 from app.models.entities import (
     ResearchProject,
     Document,
@@ -225,7 +225,40 @@ class ResearchWorkflowRunner:
                 "progress": 95
             }
 
-        # 8. Final Knowledge Graph Node
+        # 8. In Silico Computational Simulation Node
+        async def simulation_node(state: ResearchGraphState) -> Dict[str, Any]:
+            db: Session = state["db"]
+            p_id = state["project_id"]
+            proj = db.query(ResearchProject).filter(ResearchProject.id == p_id).first()
+            
+            if proj and proj.enable_simulation and proj.hypotheses:
+                self._update_db_status(db, p_id, "processing", "simulation", 95, "Running in silico computational validation")
+                try:
+                    from app.workflows.simulation_workflow import SimulationWorkflowRunner
+                    from app.models.entities import Experiment
+                    
+                    top_hypo = proj.hypotheses[0]
+                    exp = db.query(Experiment).filter(Experiment.hypothesis_id == top_hypo.id).first()
+                    if not exp:
+                        exp = Experiment(
+                            hypothesis_id=top_hypo.id,
+                            simulation_path="model_builder",
+                            status="pending"
+                        )
+                        db.add(exp)
+                        db.commit()
+                    
+                    sim_runner = SimulationWorkflowRunner()
+                    await sim_runner.run_simulation_langgraph(exp.id, db)
+                except Exception as e:
+                    logger.warning(f"In silico simulation execution error: {e}")
+
+            return {
+                "current_stage": "simulation",
+                "progress": 98
+            }
+
+        # 9. Final Knowledge Graph Node
         async def knowledge_graph_node(state: ResearchGraphState) -> Dict[str, Any]:
             db: Session = state["db"]
             p_id = state["project_id"]
@@ -246,6 +279,7 @@ class ResearchWorkflowRunner:
         builder.add_node("gaps", gaps_node)
         builder.add_node("hypotheses", hypotheses_node)
         builder.add_node("review", review_node)
+        builder.add_node("simulation", simulation_node)
         builder.add_node("knowledge_graph", knowledge_graph_node)
 
         builder.add_edge(START, "plan")
@@ -255,7 +289,8 @@ class ResearchWorkflowRunner:
         builder.add_edge("cross_domain", "gaps")
         builder.add_edge("gaps", "hypotheses")
         builder.add_edge("hypotheses", "review")
-        builder.add_edge("review", "knowledge_graph")
+        builder.add_edge("review", "simulation")
+        builder.add_edge("simulation", "knowledge_graph")
         builder.add_edge("knowledge_graph", END)
 
         return builder.compile()
@@ -266,7 +301,7 @@ class ResearchWorkflowRunner:
         """
         should_close = False
         if db is None:
-            db = SessionLocal()
+            db = db_session_module.SessionLocal()
             should_close = True
 
         try:

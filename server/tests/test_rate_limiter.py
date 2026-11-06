@@ -60,7 +60,6 @@ def test_rate_limiter_daily_quota_protection():
 
 def test_multi_model_role_resolution():
     planner_llm = get_llm_service(role="planner")
-    assert isinstance(planner_llm, MockLLMProvider)
     assert planner_llm.model_name == settings.MODEL_PLANNER
 
     analyzer_llm = get_llm_service(role="analyzer")

@@ -1,3 +1,4 @@
+from unittest.mock import AsyncMock, patch
 import pytest
 from app.models.entities import ResearchProject, Hypothesis, Experiment, SimulationReport, ReviewFeedback
 
@@ -64,10 +65,11 @@ def test_research_run_endpoint(client):
     create_res = client.post("/api/v1/research", json=create_payload)
     project_id = create_res.json()["id"]
 
-    run_res = client.post(f"/api/v1/research/{project_id}/run")
-    assert run_res.status_code == 200
-    assert run_res.json()["status"] == "processing"
-    assert run_res.json()["project_id"] == project_id
+    with patch("app.workflows.research_workflow.ResearchWorkflowRunner.execute_workflow", new_callable=AsyncMock) as mock_exec:
+        run_res = client.post(f"/api/v1/research/{project_id}/run")
+        assert run_res.status_code == 200
+        assert run_res.json()["status"] == "processing"
+        assert run_res.json()["project_id"] == project_id
 
 
 def test_discoveries_and_hypotheses_endpoints(client, db_session):
