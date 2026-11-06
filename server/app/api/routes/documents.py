@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi.responses import FileResponse, PlainTextResponse
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -121,3 +122,53 @@ def delete_document(document_id: str, db: Session = Depends(get_db)):
     db.delete(doc)
     db.commit()
     return None
+
+
+@router.get("/documents/{document_id}")
+def get_document_details(document_id: str, db: Session = Depends(get_db)):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {
+        "id": doc.id,
+        "projectId": doc.project_id,
+        "filename": doc.filename,
+        "fileSize": doc.file_size,
+        "pageCount": doc.page_count,
+        "isConfidential": bool(doc.is_confidential),
+        "fileUrl": f"/api/v1/documents/{doc.id}/file",
+        "downloadUrl": f"/api/v1/documents/{doc.id}/download",
+        "extractedTextSnippet": (doc.extracted_text or "")[:500] + "..." if len(doc.extracted_text or "") > 500 else doc.extracted_text,
+        "createdAt": doc.created_at.isoformat() if doc.created_at else None
+    }
+
+
+@router.get("/documents/{document_id}/file")
+def view_document_pdf(document_id: str, db: Session = Depends(get_db)):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if not os.path.exists(doc.file_path):
+        raise HTTPException(status_code=404, detail=f"Physical file missing on server: {doc.filename}")
+
+    return FileResponse(
+        path=doc.file_path,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{doc.filename}"'}
+    )
+
+
+@router.get("/documents/{document_id}/download")
+def download_document_pdf(document_id: str, db: Session = Depends(get_db)):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if not os.path.exists(doc.file_path):
+        raise HTTPException(status_code=404, detail=f"Physical file missing on server: {doc.filename}")
+
+    return FileResponse(
+        path=doc.file_path,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{doc.filename}"'}
+    )
+

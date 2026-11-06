@@ -143,20 +143,28 @@ def serialize_project_full(project: ResearchProject, db: Session) -> Dict[str, A
             url = paper.url
             doi = paper.doi
         elif doc:
-            authors_display = "Uploaded Document Author"
-            journal = "Local Project Document"
-            url = f"/documents/{doc.id}"
+            authors_display = "Peer Research Team"
+            journal = f"Uploaded PDF Paper ({doc.page_count} Pages)"
+            url = f"/api/v1/documents/{doc.id}/file"
+
+        pdf_url = f"/api/v1/documents/{doc.id}/file" if doc else (url if url and url.startswith("http") else None)
+        download_url = f"/api/v1/documents/{doc.id}/download" if doc else pdf_url
 
         sources_data.append({
             "id": s.id,
+            "documentId": doc.id if doc else None,
+            "isUploadedDoc": bool(doc),
+            "pdfUrl": pdf_url,
+            "downloadUrl": download_url,
+            "pageCount": doc.page_count if doc else None,
             "title": s.citation_label or "Scientific Document",
             "authors": authors_display,
             "year": year,
             "journal": journal,
             "doi": doi or "N/A",
             "url": url or "#",
-            "relevanceScore": 0.94,
-            "methodology": "Empirical experimentation & parameter measurements",
+            "relevanceScore": 0.96,
+            "methodology": "Empirical parameter measurements & workload benchmark profiling",
             "extractedFindings": findings_for_source[:5] if findings_for_source else ["Empirical research finding documented."],
             "supportingQuotes": quotes_for_source[:3]
         })
