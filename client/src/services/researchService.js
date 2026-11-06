@@ -48,6 +48,8 @@ export const researchService = {
       scope: payload.scope,
       enable_simulation: payload.enableSimulation !== undefined ? payload.enableSimulation : true,
       simulation_demands: payload.simulationDemands || null,
+      is_confidential: payload.isConfidential !== undefined ? payload.isConfidential : false,
+      privacy_level: payload.privacyLevel || 'standard',
     });
   },
 

@@ -118,7 +118,16 @@ class ResearchWorkflowRunner:
             p_id = state["project_id"]
             self._update_db_status(db, p_id, "processing", "literature_discovery", 25, "Discovering research literature")
             
-            queries = state.get("search_queries", [state["question"]])
+            proj = db.query(ResearchProject).filter(ResearchProject.id == p_id).first()
+            raw_queries = state.get("search_queries", [state["question"]])
+
+            # Privacy Shield: Prevent proprietary trade names or patent numbers from leaking to external search APIs
+            from app.services.privacy_service import PrivacyService
+            if proj and proj.is_confidential:
+                queries = [PrivacyService.sanitize_external_search_query(q) for q in raw_queries]
+            else:
+                queries = raw_queries
+
             await self.lit_agent.discover_literature(db, p_id, queries)
 
             return {
@@ -132,6 +141,9 @@ class ResearchWorkflowRunner:
             p_id = state["project_id"]
             self._update_db_status(db, p_id, "processing", "literature_analysis", 45, "Extracting evidence-backed findings")
 
+            proj = db.query(ResearchProject).filter(ResearchProject.id == p_id).first()
+            is_conf = proj.is_confidential if proj else False
+
             # Analyze uploaded PDFs
             docs = db.query(Document).filter(Document.project_id == p_id).all()
             for doc in docs:
@@ -142,11 +154,18 @@ class ResearchWorkflowRunner:
                         document_id=doc.id,
                         source_type="uploaded_document",
                         citation_label=doc.filename,
-                        metadata_info={"filename": doc.filename, "pages": doc.page_count}
+                        metadata_info={"filename": doc.filename, "pages": doc.page_count, "confidential": is_conf}
                     )
                     db.add(src)
                     db.commit()
-                self.analyzer.analyze_source_document(db, p_id, src, doc.extracted_text or "")
+
+                doc_text = doc.extracted_text or ""
+                # Privacy Shield: Sanitize confidential documents before LLM ingestion
+                if is_conf:
+                    from app.services.privacy_service import PrivacyService
+                    doc_text, _ = PrivacyService.sanitize_research_text(doc_text)
+
+                self.analyzer.analyze_source_document(db, p_id, src, doc_text)
 
             # Analyze external paper abstracts
             external_sources = db.query(Source).filter(

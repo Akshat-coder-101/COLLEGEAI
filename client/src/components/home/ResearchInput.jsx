@@ -1,5 +1,17 @@
 import React, { useState } from 'react';
-import { ArrowRight, Sparkles, Layers, BookOpen, AlertCircle, Cpu, FlaskConical, Sliders, CheckCircle2 } from 'lucide-react';
+import {
+  ArrowRight,
+  Sparkles,
+  Layers,
+  BookOpen,
+  AlertCircle,
+  Cpu,
+  FlaskConical,
+  ShieldCheck,
+  Lock,
+  EyeOff,
+  FileText
+} from 'lucide-react';
 import { Button } from '../common/Button';
 import { Card } from '../common/Card';
 import { DocumentUpload } from './DocumentUpload';
@@ -18,6 +30,10 @@ export const ResearchInput = ({ onSubmit, isLoading }) => {
   const [simInitialState, setSimInitialState] = useState('');
   const [simConstraint, setSimConstraint] = useState('');
   const [simFocusNotes, setSimFocusNotes] = useState('');
+
+  // Confidential Research & Data Privacy Layer State
+  const [isConfidential, setIsConfidential] = useState(false);
+  const [privacyLevel, setPrivacyLevel] = useState('standard');
 
   const samplePrompts = [
     "Resource Optimization and Energy Optimization across High-Performance Computing Clusters using Dynamic Voltage and Frequency Scaling",
@@ -59,6 +75,8 @@ export const ResearchInput = ({ onSubmit, isLoading }) => {
       scopeId: scope,
       enableSimulation,
       simulationDemands,
+      isConfidential,
+      privacyLevel: isConfidential ? 'confidential' : 'standard',
       files,
     });
   };
@@ -289,6 +307,108 @@ export const ResearchInput = ({ onSubmit, isLoading }) => {
           ) : (
             <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-600">
               <strong>In Silico Simulation Disabled:</strong> The workflow will focus solely on literature ingestion, empirical extraction, cross-domain connection, and hypothesis formulation without generating computational sandbox models.
+            </div>
+          )}
+        </div>
+
+        {/* Research Data Privacy & Confidential IP Shield Layer */}
+        <div className="pt-3 border-t border-slate-100 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Confidential Research IP &amp; Privacy Shield
+                </span>
+                <span className="text-[10px] bg-emerald-50 text-emerald-700 font-mono font-semibold px-2 py-0.5 rounded-full border border-emerald-200">
+                  Privacy Layer
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Protects confidential research papers, unpublished patent claims &amp; proprietary compound codes from AI data leakage
+              </p>
+            </div>
+
+            {/* Toggle: Standard vs Confidential Shield */}
+            <div className="inline-flex p-1 rounded-lg bg-slate-100 border border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsConfidential(false);
+                  setPrivacyLevel('standard');
+                }}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                  !isConfidential
+                    ? 'bg-slate-700 text-white shadow-xs font-semibold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Standard Research
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsConfidential(true);
+                  setPrivacyLevel('confidential');
+                }}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 ${
+                  isConfidential
+                    ? 'bg-emerald-600 text-white shadow-xs font-semibold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Lock className="w-3 h-3" />
+                <span>Confidential IP Shield</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Expanded Privacy Layer Details when Confidential is selected */}
+          {isConfidential && (
+            <div className="p-4 rounded-xl border border-emerald-200 bg-gradient-to-b from-emerald-50/50 via-white to-white space-y-3 animate-in fade-in duration-200 shadow-2xs">
+              <div className="flex items-center justify-between border-b border-emerald-100 pb-2">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-700" />
+                  <span className="text-xs font-bold text-emerald-950 uppercase tracking-wider">
+                    Confidential IP Safeguards Active
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono text-emerald-700 font-semibold bg-emerald-100/70 px-2 py-0.5 rounded">
+                  Zero-Leakage Enforcement
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="p-2.5 rounded-lg bg-white border border-emerald-100 space-y-1">
+                  <span className="font-semibold text-slate-800 flex items-center gap-1">
+                    <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                    PII &amp; Token Redaction
+                  </span>
+                  <p className="text-[11px] text-slate-600 leading-snug">
+                    Automatically redacts researcher emails, grant IDs, institutional affiliations, and patent serial numbers before LLM ingestion.
+                  </p>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-white border border-emerald-100 space-y-1">
+                  <span className="font-semibold text-slate-800 flex items-center gap-1">
+                    <EyeOff className="w-3.5 h-3.5 text-indigo-600" />
+                    Query Leak Prevention
+                  </span>
+                  <p className="text-[11px] text-slate-600 leading-snug">
+                    Sanitizes external literature queries to ensure proprietary project codenames or internal chemical markers are never sent to public APIs.
+                  </p>
+                </div>
+
+                <div className="p-2.5 rounded-lg bg-white border border-emerald-100 space-y-1">
+                  <span className="font-semibold text-slate-800 flex items-center gap-1">
+                    <Cpu className="w-3.5 h-3.5 text-scientific-600" />
+                    Air-Gapped Simulation
+                  </span>
+                  <p className="text-[11px] text-slate-600 leading-snug">
+                    All in silico mathematical ODE evaluations execute 100% locally with SciPy/NumPy without network calls.
+                  </p>
+                </div>
+              </div>
             </div>
           )}
         </div>

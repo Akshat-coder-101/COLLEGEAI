@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Sparkles, Scale, AlertCircle, ArrowRight, Lightbulb, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { BookOpen, Sparkles, Scale, AlertCircle, ArrowRight, Lightbulb, CheckCircle2, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../common/Card';
 import { Badge } from '../common/Badge';
 import { Button } from '../common/Button';
@@ -8,9 +8,39 @@ export const OverviewTab = ({ data, onSelectTab }) => {
   if (!data) return null;
 
   const { overview = {}, stats = {}, question, domain } = data;
+  const isConfidential = Boolean(data.isConfidential || (data.privacy && data.privacy.isConfidential));
 
   return (
     <div className="space-y-6">
+      {/* Confidential IP Privacy Shield Banner */}
+      {isConfidential && (
+        <Card className="p-4 border-emerald-200 bg-gradient-to-r from-emerald-50/70 via-white to-white shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-emerald-100 text-emerald-800 flex-shrink-0">
+                <ShieldCheck className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                    Confidential Research IP Shield Active
+                  </h4>
+                  <Badge variant="success" size="sm">
+                    Zero-Retention Protected
+                  </Badge>
+                </div>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Automated PII &amp; compound code sanitization applied • External query leakage prevented • In silico simulation air-gapped
+                </p>
+              </div>
+            </div>
+            <span className="text-[11px] font-mono font-semibold text-emerald-800 bg-emerald-100/60 px-2.5 py-1 rounded border border-emerald-200">
+              Data Privacy Shield
+            </span>
+          </div>
+        </Card>
+      )}
+
       {/* Metrics Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="p-4 border-slate-200">

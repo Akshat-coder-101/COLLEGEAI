@@ -25,6 +25,8 @@ export const Home = () => {
         scope: formData.scope,
         enableSimulation: formData.enableSimulation !== undefined ? formData.enableSimulation : true,
         simulationDemands: formData.simulationDemands || null,
+        isConfidential: formData.isConfidential !== undefined ? formData.isConfidential : false,
+        privacyLevel: formData.privacyLevel || 'standard',
       });
 
       const projectId = created.id;

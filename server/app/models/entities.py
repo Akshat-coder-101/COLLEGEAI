@@ -25,6 +25,8 @@ class ResearchProject(Base):
     scope = Column(String(100), default="Comprehensive Synthesis")
     enable_simulation = Column(Boolean, default=True)
     simulation_demands = Column(JSON, nullable=True)
+    is_confidential = Column(Boolean, default=False)
+    privacy_level = Column(String(50), default="standard")  # standard, confidential, air_gapped
     status = Column(String(50), default="created")  # created, processing, completed, failed
     current_stage = Column(String(100), default="initialized")
     progress = Column(Integer, default=0)
@@ -55,6 +57,8 @@ class Document(Base):
     file_hash = Column(String(64), nullable=False)  # SHA-256 for duplicate detection
     page_count = Column(Integer, default=0)
     extracted_text = Column(Text, nullable=True)
+    is_confidential = Column(Boolean, default=False)
+    redaction_audit = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=utc_now)
 
     project = relationship("ResearchProject", back_populates="documents")

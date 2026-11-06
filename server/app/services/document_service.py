@@ -97,3 +97,22 @@ class DocumentService:
                         "relevance": matches
                     })
         return snippets
+
+    @staticmethod
+    def process_and_sanitize_document(file_path: str, is_confidential: bool = False) -> Dict[str, Any]:
+        """
+        Extracts structured PDF content and applies automated PII/IP sanitization
+        if marked confidential.
+        """
+        data = DocumentService.extract_pdf_content(file_path)
+        if is_confidential:
+            from app.services.privacy_service import PrivacyService
+            sanitized_text, audit = PrivacyService.sanitize_research_text(data["full_text"])
+            data["full_text"] = sanitized_text
+            data["redaction_audit"] = audit
+            data["is_confidential"] = True
+        else:
+            data["redaction_audit"] = None
+            data["is_confidential"] = False
+        return data
+

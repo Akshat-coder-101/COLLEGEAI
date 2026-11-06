@@ -39,6 +39,8 @@ class CreateProjectPayload(BaseModel):
     title: Optional[str] = None
     enable_simulation: Optional[bool] = True
     simulation_demands: Optional[Dict[str, Any]] = None
+    is_confidential: Optional[bool] = False
+    privacy_level: Optional[str] = "standard"
 
 
 class SimulationTestPayload(BaseModel):
@@ -385,12 +387,22 @@ def serialize_project_full(project: ResearchProject, db: Session) -> Dict[str, A
             ]
         }
 
+    from app.services.privacy_service import PrivacyService
+    privacy_meta = PrivacyService.get_privacy_level_metadata(project.privacy_level)
+
     return {
         "id": project.id,
         "title": project.title,
         "question": project.question,
         "domain": project.domain or "Cross-Disciplinary",
         "scope": project.scope or "Comprehensive Synthesis",
+        "isConfidential": bool(project.is_confidential),
+        "privacyLevel": project.privacy_level or "standard",
+        "privacy": {
+            "isConfidential": bool(project.is_confidential),
+            "privacyLevel": project.privacy_level or "standard",
+            **privacy_meta
+        },
         "status": project.status,
         "createdAt": project.created_at.isoformat() if project.created_at else datetime.now(timezone.utc).isoformat(),
         "completedAt": project.completed_at.isoformat() if project.completed_at else None,
@@ -447,6 +459,7 @@ def list_projects_for_client(db: Session = Depends(get_db)):
 def create_project_for_client(payload: CreateProjectPayload, db: Session = Depends(get_db)):
     title = payload.title or payload.question
     enable_sim = payload.enable_simulation if payload.enable_simulation is not None else True
+    is_conf = bool(payload.is_confidential or payload.privacy_level in ("confidential", "air_gapped"))
     proj = ResearchProject(
         title=title,
         question=payload.question,
@@ -454,6 +467,8 @@ def create_project_for_client(payload: CreateProjectPayload, db: Session = Depen
         scope=payload.scope or "Comprehensive Synthesis",
         enable_simulation=enable_sim,
         simulation_demands=payload.simulation_demands,
+        is_confidential=is_conf,
+        privacy_level=payload.privacy_level or ("confidential" if is_conf else "standard"),
         status="processing",
         current_stage="retrieval",
         progress=5,
@@ -469,6 +484,8 @@ def create_project_for_client(payload: CreateProjectPayload, db: Session = Depen
         "question": proj.question,
         "domain": proj.domain,
         "scope": proj.scope,
+        "isConfidential": proj.is_confidential,
+        "privacyLevel": proj.privacy_level,
         "status": proj.status,
         "createdAt": proj.created_at.isoformat() if proj.created_at else datetime.now(timezone.utc).isoformat()
     }
@@ -507,7 +524,11 @@ async def upload_project_documents(
         with open(dest_path, "wb") as f:
             f.write(content)
 
-        extraction_data = DocumentService.extract_pdf_content(str(dest_path))
+        is_conf = bool(project.is_confidential)
+        extraction_data = DocumentService.process_and_sanitize_document(
+            str(dest_path),
+            is_confidential=is_conf
+        )
 
         doc = Document(
             project_id=project_id,
@@ -516,7 +537,9 @@ async def upload_project_documents(
             file_size=len(content),
             file_hash=file_hash,
             page_count=extraction_data["page_count"],
-            extracted_text=extraction_data["full_text"]
+            extracted_text=extraction_data["full_text"],
+            is_confidential=is_conf,
+            redaction_audit=extraction_data.get("redaction_audit")
         )
         db.add(doc)
         db.flush()
