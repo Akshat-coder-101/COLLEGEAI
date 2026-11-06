@@ -123,6 +123,17 @@ class LangChainGeminiProvider(LLMProvider):
         )
         response_text = self.generate_text(prompt, system_instruction=json_instruction)
         
+        import re
+        # 1. Try finding complete JSON block with outer curly braces
+        json_match = re.search(r"(\{.*\})", response_text, re.DOTALL)
+        if json_match:
+            candidate = json_match.group(1).strip()
+            try:
+                return json.loads(candidate)
+            except Exception:
+                pass
+
+        # 2. Try stripping markdown code fences
         cleaned = response_text.strip()
         if cleaned.startswith("```json"):
             cleaned = cleaned[7:]
@@ -220,6 +231,34 @@ class MockLLMProvider(LLMProvider):
                         "connection_type": "ai_inferred",
                         "rationale": "Inferred from analogical principles in related physical systems.",
                         "source_references": []
+                    }
+                ]
+            }
+
+        if "hypothesis" in prompt_lower or "hypotheses" in prompt_lower:
+            return {
+                "hypotheses": [
+                    {
+                        "title": "Predictive Dynamic Scaling Optimization",
+                        "statement": "Implementing workload-aware predictive scaling reduces peak operational resource dissipation by at least 32% under bursty traffic patterns.",
+                        "motivation": "Addresses identified resource efficiency and capacity allocation trade-offs under dynamic load.",
+                        "supporting_evidence_ids": [],
+                        "related_paper_ids": [],
+                        "assumptions": ["System load follows non-homogeneous stochastic distributions"],
+                        "variables": [
+                            {"name": "Scaling Rate", "type": "independent", "unit": "units/s", "role": "Intervention"},
+                            {"name": "Resource Consumption", "type": "dependent", "unit": "Watts", "role": "Target"},
+                            {"name": "Latency SLA", "type": "control", "unit": "ms", "role": "Constraint"}
+                        ],
+                        "methodology": ["Profile execution traces", "Train autoregressive scaling model", "Evaluate closed-loop frequency modulation"],
+                        "experimental_design": {
+                            "control_group": "Static baseline governor",
+                            "treatment_group": "Predictive dynamic optimizer",
+                            "metrics": ["Joules per operation", "P99 Latency (ms)"],
+                            "sample_size": "N = 30 trials"
+                        },
+                        "limitations_uncertainties": ["Switching latency overhead during ultra-short spikes"],
+                        "suggested_next_steps": ["Execute in silico ODE simulation and benchmark convergence"]
                     }
                 ]
             }

@@ -202,7 +202,9 @@ class ResearchWorkflowRunner:
             findings = proj.findings if proj else []
             gaps = proj.gaps if proj else []
             rels = proj.relationships_data if proj else []
-            self.hypo_agent.generate_hypotheses(db, p_id, findings, gaps, rels)
+            q_text = proj.question if proj else None
+            t_text = proj.title if proj else None
+            self.hypo_agent.generate_hypotheses(db, p_id, findings, gaps, rels, question=q_text, title=t_text)
 
             return {
                 "current_stage": "hypothesis_generation",

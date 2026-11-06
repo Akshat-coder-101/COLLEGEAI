@@ -49,9 +49,20 @@ export const HypothesesTab = ({ hypotheses = [] }) => {
                   )}
                 </div>
 
+                {hypo.title && (
+                  <h4 className="text-sm font-bold text-slate-900 mb-1">
+                    {hypo.title}
+                  </h4>
+                )}
                 <h3 className="text-base sm:text-lg font-semibold text-slate-900 leading-snug">
                   "{hypo.statement}"
                 </h3>
+                {hypo.rationale && (
+                  <p className="text-xs text-slate-600 mt-2 bg-white/80 p-2.5 rounded-md border border-slate-200/70">
+                    <span className="font-semibold text-slate-800">Scientific Motivation: </span>
+                    {hypo.rationale}
+                  </p>
+                )}
               </div>
 
               <div className="p-5 space-y-5">
@@ -202,4 +213,3 @@ export const HypothesesTab = ({ hypotheses = [] }) => {
     </div>
   );
 };
-
