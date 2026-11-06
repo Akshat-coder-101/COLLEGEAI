@@ -1,8 +1,9 @@
 import os
+import json
 from pathlib import Path
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
-from fastapi.responses import FileResponse, PlainTextResponse
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status, Query
+from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database.session import get_db
@@ -143,11 +144,39 @@ def get_document_details(document_id: str, db: Session = Depends(get_db)):
     }
 
 
-@router.get("/documents/{document_id}/file")
-def view_document_pdf(document_id: str, db: Session = Depends(get_db)):
+@router.get("/documents/{document_id}/redirect")
+def redirect_to_original_document(document_id: str, db: Session = Depends(get_db)):
+    """Directly redirects to the original research paper / publication page on arXiv/publisher."""
     doc = db.query(Document).filter(Document.id == document_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    source = db.query(Source).filter(Source.document_id == document_id).first()
+    target_url = None
+    if source and source.metadata_info:
+        meta = source.metadata_info if isinstance(source.metadata_info, dict) else json.loads(source.metadata_info)
+        target_url = meta.get("original_url") or meta.get("original_pdf_url") or (f"https://doi.org/{meta['doi']}" if meta.get("doi") else None)
+
+    if not target_url:
+        target_url = f"/api/v1/documents/{document_id}/file"
+
+    return RedirectResponse(url=target_url, status_code=307)
+
+
+@router.get("/documents/{document_id}/file")
+def view_document_pdf(document_id: str, redirect: bool = Query(False, description="Redirect to original online research paper/PDF"), db: Session = Depends(get_db)):
+    doc = db.query(Document).filter(Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if redirect:
+        source = db.query(Source).filter(Source.document_id == document_id).first()
+        if source and source.metadata_info:
+            meta = source.metadata_info if isinstance(source.metadata_info, dict) else json.loads(source.metadata_info)
+            target = meta.get("original_pdf_url") or meta.get("original_url")
+            if target:
+                return RedirectResponse(url=target, status_code=307)
+
     if not os.path.exists(doc.file_path):
         raise HTTPException(status_code=404, detail=f"Physical file missing on server: {doc.filename}")
 

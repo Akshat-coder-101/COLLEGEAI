@@ -123,7 +123,16 @@ export const SourcesTab = ({ sources = [] }) => {
                     </div>
 
                     <h3 className="text-base font-semibold text-slate-900 leading-snug">
-                      {source.title}
+                      <a
+                        href={source.originalUrl || source.url || (source.doi && source.doi !== 'N/A' ? `https://doi.org/${source.doi}` : '#')}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-scientific-600 hover:underline inline-flex items-center gap-1.5 transition-colors group"
+                        title="Directly redirect to original research paper page"
+                      >
+                        <span>{source.title}</span>
+                        <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-scientific-600 transition-colors flex-shrink-0" />
+                      </a>
                     </h3>
 
                     <p className="text-xs text-slate-600 font-medium">
@@ -131,41 +140,73 @@ export const SourcesTab = ({ sources = [] }) => {
                     </p>
                   </div>
 
-                  {/* Actions: View PDF, Download, External Link */}
+                  {/* Actions: Direct Redirect to Original Paper, Original PDF, Download */}
                   <div className="flex flex-wrap items-center gap-2 flex-shrink-0 pt-1">
-                    {source.pdfUrl && (
-                      <button
-                        onClick={() => setSelectedPdf(source)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-scientific-600 hover:bg-scientific-700 text-white text-xs font-medium shadow-xs transition-colors"
-                        title="View Full PDF Paper"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span>View PDF</span>
-                      </button>
-                    )}
-
-                    {source.downloadUrl && (
+                    {/* Primary Button: Direct Redirect to Original Research Paper */}
+                    {(source.originalUrl || source.url) && (
                       <a
-                        href={source.downloadUrl}
-                        download
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-colors"
-                        title="Download Research Paper PDF"
+                        href={source.originalUrl || source.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-scientific-600 hover:bg-scientific-700 text-white text-xs font-semibold shadow-xs hover:shadow transition-all"
+                        title="Directly redirect to original research paper page"
                       >
-                        <Download className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Download</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Original Research Paper</span>
                       </a>
                     )}
 
+                    {/* Original PDF Link */}
+                    {(source.originalPdfUrl || (source.pdfUrl && !source.pdfUrl.startsWith('/api/v1/documents/'))) && (
+                      <a
+                        href={source.originalPdfUrl || source.pdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-scientific-300 bg-scientific-50 hover:bg-scientific-100 text-scientific-800 text-xs font-medium transition-colors"
+                        title="Directly redirect to original online research paper PDF"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-scientific-600" />
+                        <span>Original PDF</span>
+                      </a>
+                    )}
+
+                    {/* DOI Direct Link */}
                     {source.doi && source.doi !== 'N/A' && (
                       <a
-                        href={source.url || `https://doi.org/${source.doi}`}
+                        href={`https://doi.org/${source.doi}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-mono transition-colors"
+                        title={`Open DOI: https://doi.org/${source.doi}`}
                       >
                         <span>DOI: {source.doi}</span>
                         <ExternalLink className="w-3 h-3 text-slate-400" />
                       </a>
+                    )}
+
+                    {/* Download offline backup */}
+                    {source.downloadUrl && (
+                      <a
+                        href={source.downloadUrl}
+                        download
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-xs font-medium transition-colors"
+                        title="Download offline backup PDF"
+                      >
+                        <Download className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Offline PDF</span>
+                      </a>
+                    )}
+
+                    {/* Ingested snapshot viewer */}
+                    {source.localPdfUrl && (
+                      <button
+                        onClick={() => setSelectedPdf(source)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-medium transition-colors"
+                        title="Inspect local ingested snapshot and page citations"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Local Snapshot</span>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -253,23 +294,40 @@ export const SourcesTab = ({ sources = [] }) => {
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0">
-                <a
-                  href={selectedPdf.pdfUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-2.5 py-1 text-xs font-medium text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center gap-1 transition-colors"
-                  title="Open PDF in new tab"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Open Tab</span>
-                </a>
+                {/* Direct Redirect to Original Research Paper */}
+                {(selectedPdf.originalUrl || selectedPdf.url) && (
+                  <a
+                    href={selectedPdf.originalUrl || selectedPdf.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1 text-xs font-semibold text-white bg-scientific-600 hover:bg-scientific-500 rounded-lg flex items-center gap-1.5 transition-colors shadow-xs"
+                    title="Directly redirect to original published research paper page on arXiv / publisher"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Open Original Paper</span>
+                  </a>
+                )}
+
+                {/* Direct Redirect to Original Published PDF */}
+                {selectedPdf.originalPdfUrl && (
+                  <a
+                    href={selectedPdf.originalPdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-2.5 py-1 text-xs font-medium text-scientific-200 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center gap-1 transition-colors"
+                    title="Directly redirect to original online research paper PDF"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-scientific-400" />
+                    <span>Original PDF</span>
+                  </a>
+                )}
 
                 {selectedPdf.downloadUrl && (
                   <a
                     href={selectedPdf.downloadUrl}
                     download
-                    className="px-2.5 py-1 text-xs font-medium text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center gap-1 transition-colors"
-                    title="Download PDF"
+                    className="px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg flex items-center gap-1 transition-colors"
+                    title="Download offline backup PDF"
                   >
                     <Download className="w-3.5 h-3.5" />
                     <span>Download</span>
@@ -286,10 +344,31 @@ export const SourcesTab = ({ sources = [] }) => {
               </div>
             </div>
 
+            {/* Direct Redirect Informational Banner */}
+            <div className="bg-scientific-50 px-4 py-2 border-b border-scientific-100 flex items-center justify-between text-xs text-scientific-900">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-scientific-600 flex-shrink-0" />
+                <span>
+                  Viewing local ingested verification snapshot. Click <strong>&quot;Open Original Paper&quot;</strong> above to navigate directly to the original live publication on arXiv / journal.
+                </span>
+              </div>
+              {(selectedPdf.originalUrl || selectedPdf.url) && (
+                <a
+                  href={selectedPdf.originalUrl || selectedPdf.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-scientific-700 font-bold hover:text-scientific-900 inline-flex items-center gap-1 flex-shrink-0 underline ml-2"
+                >
+                  <span>Go to Live Paper</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+            </div>
+
             {/* Embedded PDF iframe */}
             <div className="flex-1 bg-slate-100 relative min-h-[550px] overflow-hidden">
               <iframe
-                src={selectedPdf.pdfUrl}
+                src={selectedPdf.localPdfUrl || selectedPdf.pdfUrl}
                 title={selectedPdf.title}
                 className="w-full h-full min-h-[550px] border-0"
               />

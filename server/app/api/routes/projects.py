@@ -135,26 +135,62 @@ def serialize_project_full(project: ResearchProject, db: Session) -> Dict[str, A
         url = None
         doi = None
 
-        if paper:
-            authors_display = ", ".join(paper.authors[:3]) if paper.authors else "Unknown Authors"
-            year_match = re.search(r"\b(19\d\d|20\d\d)\b", str(paper.publication_date or ""))
-            year = int(year_match.group(1)) if year_match else 2024
-            journal = paper.source_provider.replace("_", " ").title()
-            url = paper.url
-            doi = paper.doi
-        elif doc:
-            authors_display = "Peer Research Team"
-            journal = f"Uploaded PDF Paper ({doc.page_count} Pages)"
-            url = f"/api/v1/documents/{doc.id}/file"
+        meta = {}
+        if s.metadata_info:
+            if isinstance(s.metadata_info, dict):
+                meta = s.metadata_info
+            elif isinstance(s.metadata_info, str):
+                try:
+                    meta = json.loads(s.metadata_info)
+                except Exception:
+                    meta = {}
 
-        pdf_url = f"/api/v1/documents/{doc.id}/file" if doc else (url if url and url.startswith("http") else None)
-        download_url = f"/api/v1/documents/{doc.id}/download" if doc else pdf_url
+        original_url = meta.get("original_url") or meta.get("url")
+        original_pdf_url = meta.get("original_pdf_url")
+        if meta.get("doi"):
+            doi = meta.get("doi")
+        if meta.get("year"):
+            year = meta.get("year")
+        if meta.get("authors"):
+            authors_display = meta.get("authors")
+        if meta.get("journal"):
+            journal = meta.get("journal")
+
+        if paper:
+            if not meta.get("authors") and paper.authors:
+                authors_display = ", ".join(paper.authors[:3])
+            year_match = re.search(r"\b(19\d\d|20\d\d)\b", str(paper.publication_date or ""))
+            if not meta.get("year") and year_match:
+                year = int(year_match.group(1))
+            if not meta.get("journal"):
+                journal = paper.source_provider.replace("_", " ").title()
+            url = original_url or paper.url or (f"https://doi.org/{paper.doi}" if paper.doi else None)
+            doi = paper.doi or doi
+        elif doc:
+            if not meta.get("authors"):
+                authors_display = "Peer Research Team"
+            if not meta.get("journal"):
+                journal = f"Uploaded PDF Paper ({doc.page_count} Pages)"
+            url = original_url or (f"https://doi.org/{doi}" if doi and doi != "N/A" else f"/api/v1/documents/{doc.id}/file")
+
+        if not original_url and doi and doi != "N/A":
+            original_url = f"https://doi.org/{doi}"
+        if not original_pdf_url and doi and doi != "N/A":
+            original_pdf_url = f"https://doi.org/{doi}"
+
+        local_pdf_url = f"/api/v1/documents/{doc.id}/file" if doc else None
+        # Primary PDF link directs straight to the original research paper / PDF
+        pdf_url = original_pdf_url or original_url or (local_pdf_url if doc else url)
+        download_url = f"/api/v1/documents/{doc.id}/download" if doc else (original_pdf_url or pdf_url)
 
         sources_data.append({
             "id": s.id,
             "documentId": doc.id if doc else None,
             "isUploadedDoc": bool(doc),
             "pdfUrl": pdf_url,
+            "originalPdfUrl": original_pdf_url,
+            "originalUrl": original_url or url,
+            "localPdfUrl": local_pdf_url,
             "downloadUrl": download_url,
             "pageCount": doc.page_count if doc else None,
             "title": s.citation_label or "Scientific Document",
@@ -162,7 +198,7 @@ def serialize_project_full(project: ResearchProject, db: Session) -> Dict[str, A
             "year": year,
             "journal": journal,
             "doi": doi or "N/A",
-            "url": url or "#",
+            "url": original_url or url or "#",
             "relevanceScore": 0.96,
             "methodology": "Empirical parameter measurements & workload benchmark profiling",
             "extractedFindings": findings_for_source[:5] if findings_for_source else ["Empirical research finding documented."],
