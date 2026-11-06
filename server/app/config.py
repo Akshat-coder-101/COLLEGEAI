@@ -10,22 +10,22 @@ class Settings(BaseSettings):
     
     # LLM & AI Models
     GEMINI_API_KEY: Optional[str] = None
-    GEMINI_MODEL: str = "gemini-3.5-flash"
+    GEMINI_MODEL: str = "gemini-1.5-flash"
     EMBEDDING_MODEL: str = "text-embedding-004"
 
-    # Multi-Model Task Distribution
-    MODEL_PLANNER: str = "gemini-3.5-flash"
-    MODEL_ANALYZER: str = "gemini-3.5-flash-lite"
-    MODEL_CROSS_DOMAIN: str = "gemini-3.5-flash"
-    MODEL_GAP_DETECTION: str = "gemini-3.6-flash"
-    MODEL_HYPOTHESIS: str = "gemini-3.5-flash"
-    MODEL_REVIEWER: str = "gemini-3.5-flash-lite"
-    MODEL_SIMULATION: str = "gemini-3.5-flash"
+    # Multi-Model Task Distribution (Optimized for 15 RPM / 1500 RPD Free-Tier Peaks)
+    MODEL_PLANNER: str = "gemini-1.5-flash"
+    MODEL_ANALYZER: str = "gemini-1.5-flash"
+    MODEL_CROSS_DOMAIN: str = "gemini-2.0-flash"
+    MODEL_GAP_DETECTION: str = "gemini-1.5-flash"
+    MODEL_HYPOTHESIS: str = "gemini-2.0-flash"
+    MODEL_REVIEWER: str = "gemini-1.5-flash"
+    MODEL_SIMULATION: str = "gemini-1.5-flash"
 
     # Rate Limiting & Quota Management
-    MAX_RPM_PER_MODEL: int = 12       # Safe margin below 15 RPM free tier
-    MAX_RPD_PER_MODEL: int = 1400     # Safe margin below 1500 RPD free tier
-    REQUEST_DELAY_SECONDS: float = 0.5  # Polite spacing between API calls
+    MAX_RPM_PER_MODEL: int = 12         # Safe margin below 15 RPM free tier
+    MAX_RPD_PER_MODEL: int = 1400       # Safe margin below 1500 RPD free tier
+    REQUEST_DELAY_SECONDS: float = 4.5  # Enforces safe spacing between peak requests in a minute
     ENABLE_MODEL_FAILOVER: bool = True
     
     # Database

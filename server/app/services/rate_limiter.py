@@ -19,12 +19,13 @@ class RateLimiter:
     4. Model failover pool routing if a model's limit is reached or 429 encountered.
     """
     FAILOVER_POOLS: Dict[str, List[str]] = {
-        "gemini-3.5-flash": ["gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-flash-lite-latest"],
-        "gemini-3.5-flash-lite": ["gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-flash-lite-latest"],
-        "gemini-3.6-flash": ["gemini-3.5-flash", "gemini-3.5-flash-lite"],
-        "gemini-3.1-flash-lite": ["gemini-3.5-flash-lite", "gemini-3.5-flash"],
-        "gemini-2.5-flash": ["gemini-3.5-flash", "gemini-3.5-flash-lite"],
-        "gemini-2.5-pro": ["gemini-3.5-flash", "gemini-3.6-flash"],
+        "gemini-1.5-flash": ["gemini-2.0-flash", "gemini-1.5-flash-8b"],
+        "gemini-2.0-flash": ["gemini-1.5-flash", "gemini-1.5-flash-8b"],
+        "gemini-1.5-flash-8b": ["gemini-1.5-flash", "gemini-2.0-flash"],
+        "gemini-1.5-pro": ["gemini-1.5-flash", "gemini-2.0-flash"],
+        "gemini-2.5-pro": ["gemini-1.5-flash", "gemini-2.0-flash"],
+        "gemini-2.5-flash": ["gemini-1.5-flash", "gemini-2.0-flash"],
+        "gemini-3.5-flash": ["gemini-1.5-flash", "gemini-2.0-flash"],
     }
 
     def __init__(
@@ -36,6 +37,7 @@ class RateLimiter:
         self.max_rpm = max_rpm or settings.MAX_RPM_PER_MODEL
         self.max_rpd = max_rpd or settings.MAX_RPD_PER_MODEL
         self.delay_seconds = delay_seconds if delay_seconds is not None else settings.REQUEST_DELAY_SECONDS
+        self._custom_delay = (delay_seconds is not None)
         
         self._lock = threading.Lock()
         # model_name -> deque of timestamps in the last 60 seconds
@@ -90,21 +92,40 @@ class RateLimiter:
 
             return requested_model
 
+    def get_model_spacing_delay(self, model: str) -> float:
+        """
+        Dynamically computes the safe spacing delay between peak requests in a minute.
+        If a custom test delay was provided, respects it.
+        Otherwise for production models:
+        - Pro models (2 RPM limit): 30.0s spacing.
+        - Flash models (15 RPM limit): 4.5s to 5.0s spacing (60s / max_rpm).
+        """
+        if self._custom_delay:
+            return self.delay_seconds
+
+        if "pro" in model.lower():
+            return 30.0
+
+        rpm_target = max(self.max_rpm, 1)
+        calculated_delay = 60.0 / rpm_target
+        return max(self.delay_seconds, calculated_delay)
+
     def acquire(self, model: str) -> float:
         """
         Blocks or waits politely until a request can be safely dispatched
         without breaching RPM limits. Returns the sleep duration (if any).
         """
         sleep_needed = 0.0
+        spacing_delay = self.get_model_spacing_delay(model)
         with self._lock:
             now = time.time()
             self._clean_windows(model, now)
 
-            # 1. Enforce spacing between consecutive calls
+            # 1. Enforce model-aware spacing between consecutive calls
             last_time = self._last_call_time.get(model, 0.0)
             elapsed = now - last_time
-            if elapsed < self.delay_seconds:
-                spacing_wait = self.delay_seconds - elapsed
+            if elapsed < spacing_delay:
+                spacing_wait = spacing_delay - elapsed
                 sleep_needed = max(sleep_needed, spacing_wait)
 
             # 2. Enforce minute sliding window limit
@@ -132,14 +153,15 @@ class RateLimiter:
         Asynchronously waits until a request can be dispatched safely.
         """
         sleep_needed = 0.0
+        spacing_delay = self.get_model_spacing_delay(model)
         with self._lock:
             now = time.time()
             self._clean_windows(model, now)
 
             last_time = self._last_call_time.get(model, 0.0)
             elapsed = now - last_time
-            if elapsed < self.delay_seconds:
-                sleep_needed = max(sleep_needed, self.delay_seconds - elapsed)
+            if elapsed < spacing_delay:
+                sleep_needed = max(sleep_needed, spacing_delay - elapsed)
 
             min_q = self._minute_calls[model]
             if len(min_q) >= self.max_rpm:
