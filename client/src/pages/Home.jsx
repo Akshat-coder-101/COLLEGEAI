@@ -23,6 +23,8 @@ export const Home = () => {
         question: formData.question,
         domain: formData.domain,
         scope: formData.scope,
+        enableSimulation: formData.enableSimulation !== undefined ? formData.enableSimulation : true,
+        simulationDemands: formData.simulationDemands || null,
       });
 
       const projectId = created.id;

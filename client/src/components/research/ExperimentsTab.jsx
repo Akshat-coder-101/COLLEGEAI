@@ -231,6 +231,102 @@ if __name__ == "__main__":
     );
   }
 
+  // Check 1: User explicitly opted out of simulation
+  if (exp && exp.simulationRequired === false) {
+    return (
+      <Card className="p-8 border-slate-200 bg-gradient-to-b from-slate-50 to-white text-center space-y-4">
+        <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-500">
+          <Cpu className="w-6 h-6" />
+        </div>
+        <div className="max-w-md mx-auto space-y-2">
+          <h3 className="text-base font-bold text-slate-800">
+            Computational In Silico Simulation Marked as Not Required
+          </h3>
+          <p className="text-xs text-slate-600 leading-relaxed">
+            This research project was configured with computational simulation marked as <strong>Not Required</strong> by the researcher. All literature ingestion, evidence extraction, gap discovery, and hypothesis formulations remain fully operational in the adjacent tabs.
+          </p>
+        </div>
+        <div className="pt-2">
+          <Badge variant="secondary" size="md">
+            Simulation State: Disabled by Researcher
+          </Badge>
+        </div>
+      </Card>
+    );
+  }
+
+  // Check 2: Scientific honesty guard — inquiry is qualitative / not computable
+  if (exp && exp.feasible === false) {
+    return (
+      <div className="space-y-6">
+        <Card className="p-6 border-amber-200 bg-amber-50/50 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div className="flex items-start gap-3.5">
+              <div className="p-2.5 rounded-xl bg-amber-100 text-amber-800 flex-shrink-0 mt-0.5">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-base font-bold text-slate-900">
+                    In Silico Simulation: Not Possible to Test
+                  </h3>
+                  <Badge variant="warning" size="sm">
+                    Scientific Honesty Guard Active
+                  </Badge>
+                </div>
+                <p className="text-xs text-amber-950 font-semibold">
+                  {exp.category || "Qualitative / Conceptual Scientific Inquiry"}
+                </p>
+                <p className="text-xs text-slate-700 leading-relaxed">
+                  {exp.verdictMessage || (
+                    "This scientific inquiry is fundamentally qualitative, interpretive, or normative. It lacks closed-form governing physical differential equations, empirical rate laws, or numerical boundary conditions suitable for deterministic in silico ODE modeling. Empirical validation must be conducted via qualitative human studies, legal hermeneutics, or formal institutional review rather than synthetic numerical simulation."
+                  )}
+                </p>
+              </div>
+            </div>
+            <Badge variant="outline" size="sm" className="font-mono text-slate-600 flex-shrink-0">
+              PRD 01 Integrity
+            </Badge>
+          </div>
+        </Card>
+
+        <Card className="border-slate-200">
+          <CardHeader className="bg-slate-50/60 border-b border-slate-200/80">
+            <CardTitle className="text-sm font-bold text-slate-800">
+              Mathematical Computability &amp; In Silico Feasibility Assessment
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  Inquiry Characteristics
+                </span>
+                <p className="font-medium text-slate-800">
+                  Domain Classification: <span className="text-amber-700 font-semibold">Qualitative / Conceptual</span>
+                </p>
+                <p className="text-slate-600 leading-relaxed">
+                  Differential Rate Laws: <span className="font-mono text-slate-700">None (Non-computable ODE)</span>
+                </p>
+              </div>
+              <div className="p-4 rounded-xl bg-white border border-slate-200 space-y-2">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                  System Integrity Action
+                </span>
+                <p className="font-bold text-rose-700 font-mono">
+                  VERDICT: SIMULATION_NOT_FEASIBLE
+                </p>
+                <p className="text-slate-600 leading-relaxed">
+                  System refused to generate fabricated pseudo-physical formulas. Real-world empirical qualitative studies recommended.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const equations = exp.equations && exp.equations.length > 0 ? exp.equations : [
     "dY/dt = -k_eff * Y",
     "k_eff = k0 * exp(-Ea / (R * T))",
@@ -251,11 +347,16 @@ if __name__ == "__main__":
       <Card className="p-5 border-slate-200 bg-gradient-to-r from-scientific-50/60 via-white to-white shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Cpu className="w-5 h-5 text-scientific-600" />
               <h2 className="text-base font-bold text-slate-900">
-                In Silico Computational Experiment Runner
+                {exp.model || "In Silico Computational Experiment Runner"}
               </h2>
+              {exp.category && (
+                <Badge variant="primary" size="sm">
+                  {exp.category}
+                </Badge>
+              )}
               <Badge variant="success" size="sm">
                 Sandbox Active
               </Badge>
@@ -508,26 +609,32 @@ if __name__ == "__main__":
                 <span className="text-[10px] font-mono text-slate-400">Boundary Conditions</span>
               </div>
               <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
-                  <span className="text-slate-600 font-medium">Thermodynamic Temperature (T)</span>
-                  <span className="font-mono font-bold text-slate-800">{testParams.T} K ({Math.round(testParams.T - 273.15)}°C)</span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
-                  <span className="text-slate-600 font-medium">Activation Energy Barrier (Ea)</span>
-                  <span className="font-mono font-bold text-slate-800">{testParams.Ea} J/mol</span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
-                  <span className="text-slate-600 font-medium">Reaction Frequency Factor (k0)</span>
-                  <span className="font-mono font-bold text-slate-800">{testParams.k0} s⁻¹</span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
-                  <span className="text-slate-600 font-medium">Initial State / Amplitude (Y₀)</span>
-                  <span className="font-mono font-bold text-slate-800">{testParams.y0}%</span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
-                  <span className="text-slate-600 font-medium">Simulation Horizon Domain</span>
-                  <span className="font-mono font-bold text-slate-800">{testParams.timeHorizon} s (25 steps)</span>
-                </div>
+                {exp.inputFeatures && exp.inputFeatures.length > 0 ? (
+                  exp.inputFeatures.map((feat, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
+                      <div className="flex flex-col">
+                        <span className="text-slate-700 font-medium">{feat.name}</span>
+                        {feat.source && <span className="text-[10px] text-slate-400">{feat.source}</span>}
+                      </div>
+                      <span className="font-mono font-bold text-slate-800">{feat.value}</span>
+                    </div>
+                  ))
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
+                      <span className="text-slate-600 font-medium">Thermodynamic Temperature (T)</span>
+                      <span className="font-mono font-bold text-slate-800">{testParams.T} K</span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
+                      <span className="text-slate-600 font-medium">Activation Energy Barrier (Ea)</span>
+                      <span className="font-mono font-bold text-slate-800">{testParams.Ea} J/mol</span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded bg-slate-50 border border-slate-100">
+                      <span className="text-slate-600 font-medium">Initial State / Amplitude (Y₀)</span>
+                      <span className="font-mono font-bold text-slate-800">{testParams.y0}%</span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -540,37 +647,32 @@ if __name__ == "__main__":
                 <span className="text-[10px] font-mono text-emerald-600 font-semibold">SciPy LSODA Solver</span>
               </div>
               <div className="space-y-2 text-xs">
-                <div className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
-                  <span className="text-slate-600 font-medium">Effective Kinetic Rate (k_eff)</span>
-                  <span className="font-mono font-bold text-scientific-700">
-                    {testResult ? Number(testResult.k_eff).toExponential(4) : "3.5713e-05"} s⁻¹
-                  </span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
-                  <span className="text-slate-600 font-medium">Final State Equilibrium (Y_final)</span>
-                  <span className="font-mono font-bold text-slate-800">
-                    {testResult ? `${testResult.final_state}%` : "99.64%"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
-                  <span className="text-slate-600 font-medium">Boundary Non-Divergence</span>
-                  <span className="font-mono font-bold text-emerald-600 flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    PASSED (Physical)
-                  </span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
-                  <span className="text-slate-600 font-medium">Ground-Truth Benchmark Accuracy</span>
-                  <span className="font-mono font-bold text-emerald-700">
-                    {testResult && testResult.accuracy_percent ? `${testResult.accuracy_percent}%` : "97.4%"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
-                  <span className="text-slate-600 font-medium">Maximum Permissible Deviation</span>
-                  <span className="font-mono font-bold text-slate-800">
-                    2.6% (Tolerance &lt; 5.0%)
-                  </span>
-                </div>
+                {exp.outputFeatures && exp.outputFeatures.length > 0 ? (
+                  exp.outputFeatures.map((feat, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
+                      <div className="flex flex-col">
+                        <span className="text-slate-700 font-medium">{feat.name}</span>
+                        {feat.status && <span className="text-[10px] text-scientific-600 font-mono">{feat.status}</span>}
+                      </div>
+                      <span className="font-mono font-bold text-slate-900">{feat.value}</span>
+                    </div>
+                  ))
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
+                      <span className="text-slate-600 font-medium">Effective Kinetic Rate (k_eff)</span>
+                      <span className="font-mono font-bold text-scientific-700">
+                        {testResult ? Number(testResult.k_eff).toExponential(4) : "3.5713e-05"} s⁻¹
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded bg-white border border-slate-200">
+                      <span className="text-slate-600 font-medium">Final State Equilibrium (Y_final)</span>
+                      <span className="font-mono font-bold text-slate-800">
+                        {testResult ? `${testResult.final_state}%` : "99.64%"}
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

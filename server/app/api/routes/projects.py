@@ -24,6 +24,7 @@ from app.models.entities import (
 from app.workflows.research_workflow import ResearchWorkflowRunner
 from app.services.document_service import DocumentService
 from app.services.knowledge_graph import KnowledgeGraphService
+from app.simulation.scientific_models import ScientificModelRegistry
 from app.config import settings
 
 router = APIRouter(prefix="/projects", tags=["Frontend Project Integration"])
@@ -36,6 +37,8 @@ class CreateProjectPayload(BaseModel):
     domain: Optional[str] = "Cross-Disciplinary"
     scope: Optional[str] = "Comprehensive Synthesis"
     title: Optional[str] = None
+    enable_simulation: Optional[bool] = True
+    simulation_demands: Optional[Dict[str, Any]] = None
 
 
 class SimulationTestPayload(BaseModel):
@@ -332,92 +335,54 @@ def serialize_project_full(project: ResearchProject, db: Session) -> Dict[str, A
 
     # Experiments & In Silico Computational Models
     experiments_data = None
-    all_exps = []
-    if project.hypotheses:
-        for h in project.hypotheses:
-            for exp in h.experiments:
-                report = exp.reports[0] if exp.reports else None
-                all_exps.append({
-                    "id": exp.id,
-                    "hypothesisId": exp.hypothesis_id,
-                    "hypothesisTitle": h.title,
-                    "hypothesisStatement": h.statement,
-                    "status": exp.status,
-                    "path": exp.simulation_path,
-                    "model": "In Silico Differential Equation Solver (SciPy odeint)",
-                    "codeTests": report.code_tests if report else "passed",
-                    "modelVerification": report.model_verification if report else "passed",
-                    "empiricalValidation": report.empirical_validation if report else "provisional",
-                    "iterations": exp.current_iteration or 1,
-                    "equations": report.mathematical_equations if (report and report.mathematical_equations) else [
-                        "dY/dt = -k_eff * Y",
-                        "k_eff = k0 * exp(-Ea / (R * T))",
-                        "Flux = -D * (dC/dx)"
-                    ],
-                    "logs": report.execution_logs if (report and report.execution_logs) else [
-                        "LangGraph: Discovered computational ODE models for hypothesis parameter verification",
-                        "Sandbox: Building grounded numerical ODE simulation model with SciPy/NumPy",
-                        "Sandbox: Executing numerical integration across parameter bounds",
-                        "BenchmarkValidator: Comparing simulated trajectories against baseline reference data (Accuracy: 96.8%)",
-                        "EvidenceValidator: Level 1 (Code tests: PASSED) | Level 2 (Model verification: PASSED) | Level 3 (Empirical: PROVISIONAL)"
-                    ],
-                    "benchmarkEval": report.test_results if (report and report.test_results) else {
-                        "accuracy": 0.968,
-                        "max_deviation": 0.032,
-                        "passed": True
-                    },
-                    "metrics": report.numerical_metrics if (report and report.numerical_metrics) else {
-                        "k_eff": 0.00342,
-                        "final_state": 12.4,
-                        "time_horizon": "100.0 s"
-                    }
-                })
-
-        # If no experiment record was saved yet in DB, synthesize grounded model spec for the primary hypothesis
-        if not all_exps and project.hypotheses:
-            top_h = project.hypotheses[0]
-            all_exps.append({
-                "id": f"sim-{top_h.id[:8]}",
-                "hypothesisId": top_h.id,
-                "hypothesisTitle": top_h.title,
-                "hypothesisStatement": top_h.statement,
-                "status": "completed",
-                "path": "model_builder",
-                "model": "In Silico Differential Equation Solver (SciPy odeint)",
-                "codeTests": "passed",
-                "modelVerification": "passed",
-                "empiricalValidation": "provisional",
-                "iterations": 1,
-                "equations": [
-                    "dY/dt = -k_eff * Y",
-                    "k_eff = k0 * exp(-Ea / (R * T))",
-                    "J_diff = -D_eff * (dC/dx)"
-                ],
-                "logs": [
-                    "LangGraph: Initializing computational sandbox environment",
-                    f"Sandbox: Formulating numerical ODE model for hypothesis '{top_h.title[:40]}...'",
-                    "Sandbox: Executing numerical integration over 100 timesteps",
-                    "BenchmarkValidator: Verifying physical non-divergence boundary constraints",
-                    "BenchmarkValidator: Comparing against reference parameter values (Accuracy: 96.8%)",
-                    "EvidenceValidator: Level 1: PASSED | Level 2: PASSED | Level 3: PROVISIONAL"
-                ],
-                "benchmarkEval": {
-                    "accuracy": 0.968,
-                    "max_deviation": 0.032,
-                    "passed": True
-                },
-                "metrics": {
-                    "k_eff": 0.00342,
-                    "final_state": 12.4,
-                    "time_horizon": "100.0 s"
-                }
-            })
-
-    if all_exps:
-        primary_exp = all_exps[0]
+    if project.enable_simulation is False:
         experiments_data = {
-            **primary_exp,
-            "items": all_exps
+            "simulationRequired": False,
+            "status": "disabled",
+            "feasible": False,
+            "category": "Disabled by User",
+            "model": "Computational Simulation Not Requested",
+            "verdictMessage": "In silico simulation was marked as Not Required by the researcher for this project.",
+            "codeTests": "not_applicable",
+            "modelVerification": "not_applicable",
+            "empiricalValidation": "not_applicable",
+            "equations": [],
+            "inputFeatures": [],
+            "outputFeatures": [],
+            "logs": ["Researcher configured project with in silico simulation disabled."],
+            "benchmarkEval": {"passed": True, "accuracy": 1.0, "reason": "Simulation not requested"},
+            "metrics": {},
+            "items": []
+        }
+    else:
+        top_h_title = project.hypotheses[0].title if project.hypotheses else "Primary Formulated Hypothesis"
+        top_h_statement = project.hypotheses[0].statement if project.hypotheses else project.question
+        top_h_id = project.hypotheses[0].id if project.hypotheses else "sim-primary"
+
+        sim_model = ScientificModelRegistry.build_simulation_model(
+            question=project.question,
+            domain=project.domain,
+            hypothesis_title=top_h_title,
+            user_demands=project.simulation_demands
+        )
+
+        experiments_data = {
+            "id": f"sim-{top_h_id[:8]}",
+            "hypothesisId": top_h_id,
+            "hypothesisTitle": top_h_title,
+            "hypothesisStatement": top_h_statement,
+            "simulationRequired": True,
+            **sim_model,
+            "items": [
+                {
+                    "id": f"sim-{top_h_id[:8]}",
+                    "hypothesisId": top_h_id,
+                    "hypothesisTitle": top_h_title,
+                    "hypothesisStatement": top_h_statement,
+                    "simulationRequired": True,
+                    **sim_model
+                }
+            ]
         }
 
     return {
@@ -481,12 +446,14 @@ def list_projects_for_client(db: Session = Depends(get_db)):
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_project_for_client(payload: CreateProjectPayload, db: Session = Depends(get_db)):
     title = payload.title or payload.question
+    enable_sim = payload.enable_simulation if payload.enable_simulation is not None else True
     proj = ResearchProject(
         title=title,
         question=payload.question,
         domain=payload.domain or "Cross-Disciplinary",
         scope=payload.scope or "Comprehensive Synthesis",
-        enable_simulation=True,
+        enable_simulation=enable_sim,
+        simulation_demands=payload.simulation_demands,
         status="processing",
         current_stage="retrieval",
         progress=5,
@@ -634,56 +601,21 @@ async def trigger_in_silico_simulation(
 @router.post("/{project_id}/test-model")
 def test_simulation_model_endpoint(
     project_id: str,
-    payload: SimulationTestPayload,
+    payload: Dict[str, Any],
     db: Session = Depends(get_db)
 ):
     project = db.query(ResearchProject).filter(ResearchProject.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    import numpy as np
-    from scipy.integrate import odeint
-
-    R = 8.314  # Universal gas constant
-    T = max(payload.T, 1.0)
-    k_eff = payload.k0 * np.exp(-payload.Ea / (R * T))
-
-    def model_ode(y, t):
-        return -k_eff * y
-
-    t_points = np.linspace(0, payload.time_horizon, max(payload.time_steps, 5))
-    sol = odeint(model_ode, payload.y0, t_points)
-    sim_list = [round(float(v[0]), 4) for v in sol]
-
-    is_physical = all(v >= -1e-6 for v in sim_list) and (sim_list[-1] <= sim_list[0] + 1e-6)
-
-    # Reference benchmark comparison
-    ref_benchmark = payload.y0 * np.exp(-k_eff * t_points)
-    max_dev = float(np.max(np.abs(sol.flatten() - ref_benchmark)))
-    accuracy = round(max(0.0, 1.0 - (max_dev / max(payload.y0, 1.0))) * 100, 2)
-
+    result = ScientificModelRegistry.execute_parameter_test(
+        question=project.question,
+        domain=project.domain,
+        params=payload
+    )
     return {
         "projectId": project_id,
-        "k_eff": float(k_eff),
-        "parameters": {
-            "T": payload.T,
-            "Ea": payload.Ea,
-            "k0": payload.k0,
-            "y0": payload.y0,
-            "time_horizon": payload.time_horizon
-        },
-        "time_points": [round(float(t), 2) for t in t_points],
-        "simulated_values": sim_list,
-        "final_state": sim_list[-1],
-        "is_physical": is_physical,
-        "passed_internal_checks": is_physical,
-        "accuracy_percent": accuracy,
-        "benchmark_passed": max_dev <= (0.05 * payload.y0 + 1e-6),
-        "validation_levels": {
-            "level1_code_tests": "PASSED" if is_physical else "FAILED",
-            "level2_model_verification": "VERIFIED" if max_dev <= (0.05 * payload.y0 + 1e-6) else "DEVIATION_EXCEEDED",
-            "level3_empirical_status": "IN_SILICO_PROVISIONAL"
-        }
+        **result
     }
 
 
@@ -696,48 +628,12 @@ def download_simulation_model_script(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    title = project.title or "HypothesisLab Model"
-    script = f'''"""
-HypothesisLab AI — In Silico Computational Simulation Model
-Project: {title}
-Generated by LangGraph Autonomous Multi-Agent Simulation Engine
-"""
+    script = ScientificModelRegistry.generate_python_script(
+        question=project.question,
+        domain=project.domain,
+        user_demands=project.simulation_demands
+    )
 
-import json
-import numpy as np
-from scipy.integrate import odeint
-
-# Calibrated Parameters from Indexed Scientific Literature
-R = 8.314       # Universal Gas Constant (J/(mol*K))
-T = 310.15      # Thermodynamic Temperature Baseline (K)
-k0 = 1.25e-2    # Frequency Factor / Reaction Rate Constant
-Ea = 14850.0    # Activation Energy Boundary (J/mol)
-
-# Arrhenius Kinetic Law
-k_eff = k0 * np.exp(-Ea / (R * T))
-
-def model_ode(y, t):
-    """Governing Differential Equation: First-order interfacial phase decay"""
-    return -k_eff * y
-
-if __name__ == "__main__":
-    t_points = np.linspace(0, 100, 25)
-    y0 = 100.0  # Initial normalized concentration / state amplitude
-
-    # Numerical integration via SciPy LSODA
-    trajectory = odeint(model_ode, y0, t_points)
-    simulated_values = [float(x[0]) for x in trajectory]
-
-    # Level 1 Physical Non-Divergence Boundary Check
-    is_physical = all(v >= 0 for v in simulated_values) and (simulated_values[-1] < simulated_values[0])
-
-    print("=" * 60)
-    print("HypothesisLab AI Simulation Results")
-    print(f"Effective Rate Constant (k_eff): {{k_eff:.6e}}")
-    print(f"Initial State: {{y0:.2f}} -> Final State: {{simulated_values[-1]:.2f}}")
-    print(f"Physical Non-Divergence Constraint: {{'PASSED' if is_physical else 'FAILED'}}")
-    print("=" * 60)
-'''
     return PlainTextResponse(
         content=script,
         media_type="text/x-python",

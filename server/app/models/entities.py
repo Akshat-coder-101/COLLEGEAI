@@ -24,6 +24,7 @@ class ResearchProject(Base):
     domain = Column(String(100), nullable=True)
     scope = Column(String(100), default="Comprehensive Synthesis")
     enable_simulation = Column(Boolean, default=True)
+    simulation_demands = Column(JSON, nullable=True)
     status = Column(String(50), default="created")  # created, processing, completed, failed
     current_stage = Column(String(100), default="initialized")
     progress = Column(Integer, default=0)

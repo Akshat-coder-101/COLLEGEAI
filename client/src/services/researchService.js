@@ -46,6 +46,8 @@ export const researchService = {
       question: payload.question,
       domain: payload.domain,
       scope: payload.scope,
+      enable_simulation: payload.enableSimulation !== undefined ? payload.enableSimulation : true,
+      simulation_demands: payload.simulationDemands || null,
     });
   },
 
